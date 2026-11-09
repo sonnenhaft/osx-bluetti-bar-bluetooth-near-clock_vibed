@@ -1,5 +1,10 @@
 import Foundation
 
+extension Reading {
+    var percentText: String { "\(percent)%" }
+    var outputText: String? { outputWatts.map { String(format: "%.0f W", $0) } }
+}
+
 struct StatusVisibility {
     var showOutput: Bool
     var showPercentage: Bool
@@ -14,9 +19,9 @@ struct StatusVisibility {
 
     func title(for reading: Reading) -> String {
         var fields: [String] = []
-        if showsPercentage(for: reading) { fields.append("\(reading.percent)%") }
-        if showOutput, let watts = reading.outputWatts {
-            fields.append(String(format: "%.0f W", watts))
+        if showsPercentage(for: reading) { fields.append(reading.percentText) }
+        if showOutput, let output = reading.outputText {
+            fields.append(output)
         }
         return fields.joined(separator: " ")
     }

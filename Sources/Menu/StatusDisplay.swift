@@ -39,7 +39,7 @@ extension BlueBarDelegate {
         // even when the user normally hides it beside a known percentage.
         guard showBrandIcon || !hasReading, let badge = brandBadge else { return indicator }
         let scale = statusFontSize / 11
-        let side: CGFloat = (hasReading ? 7 * scale : min(22, 18 * scale)).rounded()
+        let side: CGFloat = min(22, (hasReading ? 16 : 18) * scale).rounded()
         let gap: CGFloat = indicator == nil ? 0 : scale
         let size = NSSize(width: side + gap + (indicator?.size.width ?? 0), height: side)
         let image = NSImage(size: size)
@@ -77,7 +77,7 @@ extension BlueBarDelegate {
 
     func render() {
         guard statusItem != nil else { return }
-        if !uiSelfTest && !quitting && !statusItem.isVisible { statusItem.isVisible = true }
+        if !quitting && !statusItem.isVisible { statusItem.isVisible = true }
         let reading = lastGood
         let now = Date()
         let stale = reading.map { now.timeIntervalSince($0.measuredAt) > maximumAge } ?? false
@@ -123,17 +123,14 @@ extension BlueBarDelegate {
             + (lastRead.map { "\n" + $0 } ?? "")
             + (detail.isEmpty ? "" : "\n" + detail)
         runtimeButton.title = (demo ? "DEMO · " : "") + runtimeItem.title
-        for (button, visible, name) in [
-            (iconVisibilityButton, showBrandIcon, "icon"),
-            (percentVisibilityButton, visibility.showsPercentage(for: reading), "percentage"),
-            (outputVisibilityButton, visibility.showOutput, "output power")
-        ] {
-            button.image = NSImage(systemSymbolName: visible ? "eye" : "eye.slash", accessibilityDescription: nil)
-            let action = (visible ? "Hide " : "Show ") + name
-            button.toolTip = action
-            button.setAccessibilityLabel(action)
+        iconVisibilityItem.title = showBrandIcon ? "Hide Icon" : "Show Icon"
+        percentVisibilityItem.title = visibility.showsPercentage(for: reading) ? "Hide Percentage" : "Show Percentage"
+        outputVisibilityItem.title = visibility.showOutput ? "Hide Output Power" : "Show Output Power"
+        if let reading = reading {
+            percentVisibilityItem.title += " · " + reading.percentText
+            if let output = reading.outputText { outputVisibilityItem.title += " · " + output }
         }
-        percentVisibilityButton.isEnabled = visibility.canHidePercentage(for: reading)
+        percentVisibilityItem.isEnabled = visibility.canHidePercentage(for: reading)
         let runtimeTip = (runtime.toolTip.map { $0 + "\n" } ?? "") + "Click to refresh."
         runtimeButton.toolTip = runtimeTip
         runtimeItem.toolTip = runtimeTip

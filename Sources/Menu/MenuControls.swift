@@ -148,23 +148,16 @@ extension BlueBarDelegate {
     }
 
     private func addVisibilityControls() {
-        let row = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 28))
-        let controls = [(iconVisibilityButton, "Icon", #selector(toggleBrandIcon)),
-                        (percentVisibilityButton, "%", #selector(togglePercent)),
-                        (outputVisibilityButton, "W", #selector(toggleOutput))]
-        for (index, (button, title, action)) in controls.enumerated() {
-            button.frame = NSRect(x: 8 + index * 75, y: 2, width: 72, height: 24)
-            button.title = title
-            button.imagePosition = .imageLeading
-            button.bezelStyle = .rounded
-            button.controlSize = .small
-            button.target = self
-            button.action = action
-            row.addSubview(button)
+        let icon = brandBadge?.copy() as? NSImage
+        icon?.size = NSSize(width: 18, height: 18)
+        iconVisibilityItem.image = icon
+        for (item, selector) in [(iconVisibilityItem, #selector(toggleBrandIcon)),
+                                 (percentVisibilityItem, #selector(togglePercent)),
+                                 (outputVisibilityItem, #selector(toggleOutput))] {
+            item.target = self
+            item.action = selector
+            menu.addItem(item)
         }
-        let item = NSMenuItem()
-        item.view = row
-        menu.addItem(item)
     }
 
     @objc func togglePercent() {

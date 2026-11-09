@@ -1,4 +1,4 @@
-# BluettiBar 2.0.6
+# BluettiBar 2.0.7
 
 BluettiBar shows a BLUETTI AC50P’s battery level and output power next to the Mac clock. It uses Swift and the frameworks included with macOS.
 
@@ -12,13 +12,13 @@ On macOS 12 or later, install Apple Command Line Tools with `xcode-select --inst
 ./install.command
 ```
 
-The installer builds and tests the app, starts it, enables launch at login, and reveals it in Finder. It uses `/Applications` when writable and `~/Applications` otherwise. Updates preserve preferences, station aliases, and the last reading.
+The installer builds and signs the app, starts it, enables launch at login, and reveals it in Finder. It uses `/Applications` when writable and `~/Applications` otherwise. Updates preserve preferences, station aliases, and the last reading.
 
 Allow Bluetooth access when prompted. If the station is busy, disconnect the BLUETTI phone app.
 
 ## Menu bar
 
-A reading such as **73% 135 W** shows the battery level followed by the combined AC and DC output. Use the eye buttons to show or hide the icon, percentage, and output power. Hiding output power restores the percentage. The percentage also appears when a reading lacks a complete output measurement.
+A reading such as **73% 135 W** shows the battery level followed by the combined AC and DC output. Separate Show and Hide menu items preview the icon, battery percentage, and output power. Hiding output power restores the percentage. The percentage also appears when a reading lacks a complete output measurement.
 
 Before the first reading, the BLUETTI icon opens the menu. If the station goes offline, the app keeps its last reading and shows when it was taken. After three unsuccessful retries, the app checks every two minutes. Click the refresh arrow to try again immediately.
 

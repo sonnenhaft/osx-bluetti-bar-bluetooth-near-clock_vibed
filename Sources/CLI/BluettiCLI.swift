@@ -15,7 +15,7 @@ struct BluettiCommandError: Error {
     init(_ code: String, _ message: String) { self.code = code; self.message = message }
 }
 
-enum BluettiCommand: Equatable { case status, percent, scan, cached, help, selfTest }
+enum BluettiCommand: Equatable { case status, percent, scan, cached, help }
 
 struct BluettiOptions {
     var command: BluettiCommand
@@ -25,10 +25,6 @@ struct BluettiOptions {
     static func parse(_ arguments: [String]) throws -> BluettiOptions {
         if arguments.isEmpty || arguments.contains("--help") || arguments.contains("-h") {
             return BluettiOptions(command: .help, device: nil, timeout: 25)
-        }
-        if arguments[0] == "--self-test" {
-            guard arguments.count == 1 else { throw BluettiCommandError("arguments", "--self-test does not accept options.") }
-            return BluettiOptions(command: .selfTest, device: nil, timeout: 25)
         }
         let command: BluettiCommand
         switch arguments[0] {
@@ -99,7 +95,6 @@ enum BluettiNativeCommand {
       bluetti scan    [--timeout SECONDS]
       bluetti cached [--device NAME_OR_ID]
       bluetti --help
-      bluetti --self-test
 
     status   Read one fresh Bluetooth sample as JSON.
     percent  Read a fresh sample and print its integer battery percentage.
@@ -108,7 +103,6 @@ enum BluettiNativeCommand {
 
     --device accepts an exact ID or part of the Bluetooth name (not case-sensitive).
     Multiple matching stations are an error. Default operation timeout: 25 seconds.
-    --self-test checks protocol/runtime/cache logic without using Bluetooth.
 
     Close the official BLUETTI phone app before connecting. macOS may request
     Bluetooth access for BluettiBar or the terminal used to launch this helper.
@@ -148,30 +142,15 @@ enum BluettiNativeCommand {
         return BluettiCommandError("runtime", error.localizedDescription)
     }
 
-    // The optional URL is dependency injection for offline verification only;
-    // there is no extra command-line flag/environment override in the app.
-    static func run(arguments: [String], cacheDirectory: URL? = nil) -> Int32 {
+    static func run(arguments: [String]) -> Int32 {
         _ = signal(SIGPIPE, SIG_IGN)
         do {
-            if arguments.first == "--self-test-lock-child" {
-                guard arguments.count == 2 else {
-                    throw BluettiCommandError("arguments", "Invalid internal lock-test invocation.")
-                }
-                return try BluettiNativeSelfTests.probeExistingTestLock(path: arguments[1])
-            }
             let options = try BluettiOptions.parse(arguments)
             if options.command == .help {
                 try BluettiFiles.writeAll(Data(usage.utf8), descriptor: STDOUT_FILENO)
                 return 0
             }
-            if options.command == .selfTest {
-                let protocolCount = try BluettiBluetooth.selfTest()
-                let logicCount = try BluettiNativeSelfTests.run()
-                try writeJSONObject(["ok": true, "self_test": "passed", "tests": protocolCount + logicCount,
-                                     "protocol_tests": protocolCount, "logic_tests": logicCount])
-                return 0
-            }
-            let directory = try cacheDirectory ?? BluettiFiles.cacheDirectory()
+            let directory = try BluettiFiles.cacheDirectory()
             if options.command == .cached {
                 try writeJSON(BluettiFiles.cachedStatus(directory: directory, device: options.device,
                                                        now: BluettiFiles.unixNow()))

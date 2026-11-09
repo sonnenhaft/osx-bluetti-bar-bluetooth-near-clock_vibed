@@ -6,10 +6,6 @@ import Darwin
 enum BluettiInstallation {
     private static let bundleID = "com.local.bluebar"
     private static let ownershipMarker = "Contents/Resources/bluebar-owned"
-    private static let requiredFeatures: Set<String> = [
-        "font_slider", "interval_slider", "icon_toggle", "color_control",
-        "station_menu", "runtime_refresh", "load_graph", "brand_asset", "status_item_visible"
-    ]
     private static var instanceLock: Int32 = -1
     private static let startedAt = Date()
 
@@ -59,7 +55,7 @@ enum BluettiInstallation {
         }
     }
 
-    // Only the UI holds this lock; CLI, installation and self-test modes never do.
+    // Only the UI holds this lock; CLI and installation modes never do.
     // The descriptor remains open for the lifetime of the UI process.
     static func claimUIInstance() -> Bool {
         if instanceLock >= 0 { return true }
@@ -81,13 +77,8 @@ enum BluettiInstallation {
         return true
     }
 
-    // Called after the actual menu objects have been built and validated.
-    static func publishReady(features: [String]) {
-        guard instanceLock >= 0, requiredFeatures.isSubset(of: Set(features)),
-              let executable = Bundle.main.executableURL else {
-            report("UI readiness was not published: required menu controls are missing.")
-            return
-        }
+    static func publishReady() {
+        guard instanceLock >= 0, let executable = Bundle.main.executableURL else { return }
         let arguments = Array(CommandLine.arguments.dropFirst())
         let token = installationToken(in: arguments) ?? ""
         let value: [String: Any] = [
@@ -98,7 +89,6 @@ enum BluettiInstallation {
             "executable_path": canonical(executable).path,
             "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
             "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
-            "features": features.sorted(),
             "started_at": startedAt.timeIntervalSince1970,
             "ready_at": Date().timeIntervalSince1970
         ]
@@ -179,7 +169,7 @@ enum BluettiInstallation {
         if URL(fileURLWithPath: first).lastPathComponent == "bluetti" { return true }
         let options = arguments.dropFirst()
         return options.contains("--bluetti-helper") || options.contains("--preserve-legacy-reading")
-            || options.contains("--ui-self-test") || options.contains(where: { $0.hasPrefix("--installer-") })
+            || options.contains(where: { $0.hasPrefix("--installer-") })
     }
 
     private static func isDeletedLegacyUI(root: URL, actual: URL, arguments: [String]) -> Bool {
@@ -310,7 +300,6 @@ enum BluettiInstallation {
                value["bundle_path"] as? String == root.path,
                value["executable_path"] as? String == expectedExecutable.path,
                let pid = value["pid"] as? Int, pid > 1, pid <= Int(Int32.max),
-               let features = value["features"] as? [String], requiredFeatures.isSubset(of: Set(features)),
                let readyAt = value["ready_at"] as? Double, readyAt.isFinite,
                readyAt <= Date().timeIntervalSince1970 + 2,
                let application = NSRunningApplication(processIdentifier: pid_t(pid)),

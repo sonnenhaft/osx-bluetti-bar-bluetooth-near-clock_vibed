@@ -1,7 +1,6 @@
 import Foundation
 
-// Shared by the real CoreBluetooth adapter and offline self-tests. Exact IDs
-// precede exact names, then partial names; selection is never arbitrary.
+// Exact IDs precede exact names, then partial names; selection is never arbitrary.
 func bluettiChooseDevice(_ devices: [BluettiNativeDevice], selector: String?) throws -> BluettiNativeDevice {
     let eligible = devices.filter { ($0.json["model"] as? String) == "AC50P" }
     let matches: [BluettiNativeDevice]

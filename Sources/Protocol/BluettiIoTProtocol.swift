@@ -5,8 +5,6 @@ import CryptoKit
 import CommonCrypto
 import Security
 
-// Internal rather than private so the built-in, radio-free self-tests exercise
-// the exact framing, crypto and register decoder used by the live connection.
 enum BluettiIoTProtocol {
     static let maximumPlaintext = 4096
     static let pollWindows: [(UInt16, UInt16)] = [(102, 16), (116, 4), (140, 8), (1300, 16), (2011, 12)]

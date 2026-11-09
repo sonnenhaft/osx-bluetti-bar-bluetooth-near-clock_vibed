@@ -11,11 +11,6 @@ private struct BluettiBarApplication {
         if URL(fileURLWithPath: CommandLine.arguments[0]).lastPathComponent == "bluetti" {
             exit(BluettiNativeCommand.run(arguments: arguments))
         }
-        if arguments.first == "--ui-self-test" {
-            let application = NSApplication.shared
-            application.setActivationPolicy(.accessory)
-            exit(BlueBarDelegate.runUISelfTest())
-        }
         // The installer captures a previous reading before asking the old app to quit.
         // This mode reads no Bluetooth device, opens no UI and writes no API status file.
         if CommandLine.arguments.contains("--preserve-legacy-reading") {

@@ -1,16 +1,13 @@
 import AppKit
 
 final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    let defaults: UserDefaults
-    let uiSelfTest: Bool
+    let defaults = UserDefaults.standard
     let refreshChoices = [(5, "5s"), (20, "20s"), (30, "30s"), (60, "1m"), (120, "2m")]
     let demo = CommandLine.arguments.contains("--demo")
     private var showMenuAfterLaunch = CommandLine.arguments.contains("--show-menu")
     private var menuPopupScheduled = false
     var statusItem: NSStatusItem!
-    var statusAutosaveName: String {
-        uiSelfTest ? "BluettiBar.UISelfTest" : "BluettiBar.Status"
-    }
+    let statusAutosaveName = "BluettiBar.Status"
     lazy var brandBadge: NSImage? = {
         guard let url = Bundle.main.url(forResource: "bluetti-icon", withExtension: "jpg"),
               let image = NSImage(contentsOf: url) else { return nil }
@@ -29,10 +26,10 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var isScanning = false
     var scanError: String?
     lazy var stationDirectory: BlueBarStationDirectory = {
-        return self.demo || self.uiSelfTest ? BlueBarStationDirectory(defaults: nil) : BlueBarStationDirectory()
+        return self.demo ? BlueBarStationDirectory(defaults: nil) : BlueBarStationDirectory()
     }()
-    lazy var readingStore = BlueBarReadingStore(defaults: self.demo || self.uiSelfTest ? nil : self.defaults,
-                                                       fallbackStatusURL: self.demo || self.uiSelfTest ? nil : self.cacheURL)
+    lazy var readingStore = BlueBarReadingStore(defaults: self.demo ? nil : self.defaults,
+                                                       fallbackStatusURL: self.demo ? nil : self.cacheURL)
     let stationMenu = NSMenu(title: "Station")
     let stationItem = NSMenuItem()
     var stationMenuIsOpen = false
@@ -55,8 +52,8 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let fixedMenuFont = NSFont.systemFont(ofSize: 12)
     var lastReadTimer: Timer?
     var mainMenuIsOpen = false
-    let percentVisibilityButton = NSButton(frame: .zero)
-    let outputVisibilityButton = NSButton(frame: .zero)
+    let percentVisibilityItem = NSMenuItem()
+    let outputVisibilityItem = NSMenuItem()
     var visibility: StatusVisibility {
         get {
             StatusVisibility(showOutput: !defaults.bool(forKey: "hideOutputWatts"),
@@ -68,7 +65,7 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    let iconVisibilityButton = NSButton(frame: .zero)
+    let iconVisibilityItem = NSMenuItem()
     let runtimeItem = NSMenuItem(title: "Loading…", action: nil, keyEquivalent: "r")
     let runtimeButton = NSButton(frame: .zero)
     let runtimeRefreshButton = NSButton(frame: .zero)
@@ -79,12 +76,6 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let textColorButton = NSButton(frame: .zero)
     let refreshSlider = NSSlider(frame: .zero)
     let refreshValue = NSTextField(labelWithString: "Refresh: 30s")
-
-    init(defaults: UserDefaults = .standard, uiSelfTest: Bool = false) {
-        self.defaults = defaults
-        self.uiSelfTest = uiSelfTest
-        super.init()
-    }
 
     var refreshInterval: TimeInterval {
         let saved = defaults.integer(forKey: "refreshIntervalSeconds")
@@ -145,19 +136,13 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ?? Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/BluettiBar")
     }
 
-    func buildMenu(restoringReading: Bool) {
-        // AppKit also persists automatically named items. Never let the hidden
-        // installer test reuse the real item's visibility or saved position.
-        if !uiSelfTest {
-            // AppKit's position hint requests the right edge of the status area.
-            // Seed it before creating/naming the item; no other app is changed.
-            let positionKey = "NSStatusItem Preferred Position " + statusAutosaveName
-            if defaults.object(forKey: positionKey) == nil { defaults.set(0, forKey: positionKey) }
-        }
+    private func buildMenu() {
+        let positionKey = "NSStatusItem Preferred Position " + statusAutosaveName
+        if defaults.object(forKey: positionKey) == nil { defaults.set(0, forKey: positionKey) }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = statusAutosaveName
         statusItem.behavior = []
-        statusItem.isVisible = !uiSelfTest
+        statusItem.isVisible = true
         if let button = statusItem.button {
             button.setAccessibilityIdentifier(statusAutosaveName)
             button.font = NSFont.monospacedDigitSystemFont(ofSize: statusFontSize, weight: .regular)
@@ -166,7 +151,7 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Read the separate per-station store before status.json is replaced by
         // a pending/error response. A restored sample never becomes fresh API data.
-        if restoringReading { restoreSelectedReading() }
+        restoreSelectedReading()
         makeMenu()
         statusItem.menu = menu
         menu.delegate = self
@@ -174,11 +159,9 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        buildMenu(restoringReading: true)
-        do {
-            BluettiInstallation.publishReady(features: try verifiedMenuFeatures())
-        } catch {
-            NSLog("BluettiBar UI readiness: %@", error.localizedDescription)
+        buildMenu()
+        if statusItem.isVisible && statusItem.button != nil && statusItem.menu === menu {
+            BluettiInstallation.publishReady()
         }
         writeFailure("Waiting for a fresh Bluetooth reading.")
 

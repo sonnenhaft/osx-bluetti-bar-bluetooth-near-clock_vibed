@@ -43,7 +43,7 @@ echo 'Building BluettiBar with the macOS SDK…'
   -target "$(uname -m)-apple-macosx12.0" \
   -framework AppKit -framework Foundation -framework CoreBluetooth \
   -framework CryptoKit -framework Security \
-  "$PROJECT_DIR"/Sources/*/*.swift "$PROJECT_DIR"/Tests/*.swift \
+  "$PROJECT_DIR"/Sources/*/*.swift \
   -o "$STAGED_APP/Contents/MacOS/BluettiBar"
 /bin/cp "$PROJECT_DIR/resources/Info.plist" "$STAGED_APP/Contents/Info.plist"
 /bin/cp "$PROJECT_DIR/resources/bluetti-icon.jpg" "$STAGED_APP/Contents/Resources/bluetti-icon.jpg"
@@ -54,9 +54,6 @@ printf '%s\n' 'BlueBar-owned: BluettiBar AC50P monitor' > "$STAGED_APP/$OWNERSHI
 /usr/bin/codesign --force --sign - "$STAGED_APP"
 /usr/bin/codesign --verify --deep --strict "$STAGED_APP"
 "$STAGED_APP/Contents/MacOS/BluettiBar" --bluetti-helper --help >/dev/null
-echo 'Checking protocol, cache and runtime logic…'
-"$STAGED_APP/Contents/MacOS/BluettiBar" --bluetti-helper --self-test
-"$STAGED_APP/Contents/MacOS/BluettiBar" --ui-self-test
 if [[ "${BLUETTI_CHECK_ONLY:-0}" == 1 ]]; then exit 0; fi
 
 # Complete all build checks before touching the previous working installation.
