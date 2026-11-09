@@ -29,9 +29,12 @@ struct LoadChartHistory {
         points.append(LoadChartPoint(timestamp: timestamp, watts: watts,
                                      startsSegment: pendingGap || gap))
         pendingGap = false
-        points.removeAll { $0.timestamp < timestamp.addingTimeInterval(-Self.window) }
-        // 361 points cover 30 minutes at the fastest supported 5-second poll.
-        if points.count > 400 { points.removeFirst(points.count - 400) }
+        let cutoff = timestamp.addingTimeInterval(-Self.window)
+        if let first = points.first, first.timestamp < cutoff {
+            points.removeFirst(points.prefix { $0.timestamp < cutoff }.count)
+        }
+        // Include both ends of the 30-minute window at one sample per second.
+        if points.count > 1801 { points.removeFirst(points.count - 1801) }
     }
 
     mutating func markGap() { pendingGap = true }

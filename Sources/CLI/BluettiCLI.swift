@@ -145,7 +145,19 @@ enum BluettiNativeCommand {
     static func run(arguments: [String]) -> Int32 {
         _ = signal(SIGPIPE, SIG_IGN)
         do {
-            let options = try BluettiOptions.parse(arguments)
+            var command = arguments[...]
+            let interval: PollInterval?
+            if command.first == "--poll-session" {
+                command = command.dropFirst()
+                guard let value = command.first, let seconds = Int(value),
+                      let choice = PollInterval(rawValue: seconds), choice.keepsConnection,
+                      command.dropFirst().first == "status" else {
+                    throw BluettiCommandError("arguments", "Invalid polling session.")
+                }
+                interval = choice
+                command = command.dropFirst()
+            } else { interval = nil }
+            let options = try BluettiOptions.parse(Array(command))
             if options.command == .help {
                 try BluettiFiles.writeAll(Data(usage.utf8), descriptor: STDOUT_FILENO)
                 return 0
@@ -166,13 +178,15 @@ enum BluettiNativeCommand {
                         .map { ["name": $0.name, "id": $0.id, "model": "AC50P"] }
                     try writeJSONObject(["ok": true, "devices": entries])
                 } else {
-                    let object = try BluettiBluetooth.read(device: options.device, timeout: TimeInterval(options.timeout))
-                    var status = try BluettiStatus.fromNative(object)
-                    try BluettiFiles.validateStatus(status, now: BluettiFiles.unixNow())
-                    BluettiRuntimeEstimator.attach(to: &status, directory: directory)
-                    if options.command == .percent {
-                        try BluettiFiles.writeAll(Data("\(status.batteryPercent)\n".utf8), descriptor: STDOUT_FILENO)
-                    } else { try writeJSON(status) }
+                    try BluettiBluetooth.readSamples(device: options.device, timeout: TimeInterval(options.timeout),
+                                                     interval: interval) { object in
+                        var status = try BluettiStatus.fromNative(object)
+                        try BluettiFiles.validateStatus(status, now: BluettiFiles.unixNow())
+                        BluettiRuntimeEstimator.attach(to: &status, directory: directory)
+                        if options.command == .percent {
+                            try BluettiFiles.writeAll(Data("\(status.batteryPercent)\n".utf8), descriptor: STDOUT_FILENO)
+                        } else { try writeJSON(status) }
+                    }
                 }
                 return Int32(0)
             }

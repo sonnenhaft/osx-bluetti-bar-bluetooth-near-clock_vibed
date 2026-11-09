@@ -85,8 +85,8 @@ enum BluettiFiles {
         }
         let maximumAge: UInt64
         if let interval = status.refreshIntervalSeconds {
-            guard [UInt64(5), 20, 30, 60, 120].contains(interval) else {
-                throw BluettiCommandError("invalid_data", "Invalid cached refresh interval; expected 5, 20, 30, 60 or 120 seconds.")
+            guard let seconds = Int(exactly: interval), PollInterval(rawValue: seconds) != nil else {
+                throw BluettiCommandError("invalid_data", "Invalid cached refresh interval; expected 1, 3, 5, 20, 30, 60 or 120 seconds.")
             }
             maximumAge = max(90, interval + 35)
         } else { maximumAge = 90 }

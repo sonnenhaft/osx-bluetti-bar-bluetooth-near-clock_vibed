@@ -29,6 +29,33 @@ private final class PipeCapture {
         try? handle.close()
     }
 
+    // The session writes one JSON object per line. Retain only its final
+    // error for the exit handler; successful samples go straight to the UI.
+    func drainSamples(_ handle: FileHandle, receive: ([String: Any]) -> Void, invalid: () -> Void) {
+        defer { try? handle.close() }
+        var pending = Data()
+        while true {
+            let chunk = handle.availableData
+            if chunk.isEmpty { break }
+            pending.append(chunk)
+            while let end = pending.firstIndex(of: 0x0a) {
+                let line = Data(pending[..<end])
+                pending.removeSubrange(...end)
+                guard let object = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] else {
+                    invalid()
+                    return
+                }
+                if object["ok"] as? Bool == true { receive(object) }
+                else {
+                    lock.lock()
+                    bytes = line
+                    lock.unlock()
+                }
+            }
+            if pending.count > 262_144 { invalid(); return }
+        }
+    }
+
     func data() -> Data {
         lock.lock()
         defer { lock.unlock() }
@@ -42,7 +69,8 @@ final class CLIJob {
     private var stopReason: String?
     private var finished = false
 
-    func run(executable: URL, arguments: [String], completion: @escaping (CLIResult) -> Void) {
+    func run(executable: URL, arguments: [String],
+             onSample: (([String: Any]) -> Void)? = nil, completion: @escaping (CLIResult) -> Void) {
         DispatchQueue.global(qos: .utility).async {
             let task = Process()
             let outPipe = Pipe()
@@ -75,10 +103,24 @@ final class CLIJob {
             }
             self.lock.unlock()
 
+            // Allow 1.5 seconds for SIGTERM cleanup before forceStop.
+            let watchdog = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+            watchdog.setEventHandler { [weak self] in
+                self?.cancel(reason: "Bluetooth operation timed out.")
+            }
+            watchdog.schedule(deadline: .now() + 13.5)
+            watchdog.resume()
             let drains = DispatchGroup()
             drains.enter()
             DispatchQueue.global(qos: .utility).async {
-                outCapture.drain(outPipe.fileHandleForReading)
+                if let onSample = onSample {
+                    outCapture.drainSamples(outPipe.fileHandleForReading, receive: { sample in
+                        watchdog.schedule(deadline: .now() + 13.5)
+                        onSample(sample)
+                    }, invalid: { self.cancel(reason: "Invalid Bluetooth sample stream.") })
+                } else {
+                    outCapture.drain(outPipe.fileHandleForReading)
+                }
                 drains.leave()
             }
             drains.enter()
@@ -87,13 +129,9 @@ final class CLIJob {
                 drains.leave()
             }
 
-            let deadline = DispatchWorkItem { [weak self] in
-                self?.cancel(reason: "Bluetooth read timed out. Check the station and close the BLUETTI phone app.")
-            }
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 36, execute: deadline)
             task.waitUntilExit()
-            deadline.cancel()
             drains.wait()
+            watchdog.cancel()
 
             self.lock.lock()
             self.finished = true

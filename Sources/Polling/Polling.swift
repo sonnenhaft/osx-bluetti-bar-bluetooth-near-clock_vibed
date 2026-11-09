@@ -8,7 +8,7 @@ extension BlueBarDelegate {
     func restartPollTimer() {
         pollTimer?.invalidate()
         pollTimer = nil
-        guard !quitting else { return }
+        guard !quitting, !streaming else { return }
         let timer = Timer(timeInterval: pollDelay, repeats: true) { [weak self] _ in self?.refresh() }
         RunLoop.main.add(timer, forMode: .common)
         pollTimer = timer
@@ -41,6 +41,13 @@ extension BlueBarDelegate {
         fail(error)
     }
 
+    func stopPollingSession() {
+        guard streaming else { return }
+        generation += 1
+        pendingRefresh = true
+        job?.cancel()
+    }
+
     @objc func refreshClicked() {
         guard !sleeping, !quitting else { return }
         resetReadRetryBudget()
@@ -71,13 +78,36 @@ extension BlueBarDelegate {
         let read = CLIJob()
         let thisGeneration = generation
         job = read
-        var arguments = ["status", "--timeout", "28"]
+        streaming = selectedInterval.keepsConnection
+        var arguments = ["status", "--timeout", "13"]
+        if streaming {
+            arguments.insert(contentsOf: ["--poll-session", String(selectedInterval.rawValue)], at: 0)
+            pollTimer?.invalidate()
+            pollTimer = nil
+        }
         if !identifier.isEmpty { arguments += ["--device", identifier] }
         render()
-        read.run(executable: helperURL, arguments: arguments) { [weak self, weak read] result in
+        let receive: ([String: Any]) -> Void = { [weak self, weak read] snapshot in
+            DispatchQueue.main.async {
+                guard let self = self, let read = read, self.job === read,
+                      self.generation == thisGeneration, !self.sleeping, !self.quitting else { return }
+                self.pendingRefresh = false
+                if !self.accept(snapshot) {
+                    // accept already recorded the failure and scheduled the retry.
+                    self.generation += 1
+                    read.cancel(reason: "Invalid station reading.")
+                }
+            }
+        }
+        read.run(executable: helperURL, arguments: arguments,
+                 onSample: streaming ? receive : nil) { [weak self, weak read] result in
             DispatchQueue.main.async {
                 guard let self = self, let read = read, self.job === read else { return }
                 self.job = nil
+                if self.streaming {
+                    self.streaming = false
+                    self.restartPollTimer()
+                }
                 if self.quitting {
                     NSApp.reply(toApplicationShouldTerminate: true)
                     return

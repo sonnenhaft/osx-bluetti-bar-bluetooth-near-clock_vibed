@@ -7,8 +7,8 @@ final class BluettiCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDele
     private static let serviceID = CBUUID(string: "FF00")
     private static let notifyID = CBUUID(string: "FF01")
     private static let writeID = CBUUID(string: "FF02")
-    private let finalDeadline: TimeInterval
-    private let deadline: TimeInterval
+    private var finalDeadline: TimeInterval
+    private var deadline: TimeInterval
     private var central: CBCentralManager!
     private var discovered: [String: (CBPeripheral, BluettiNativeDevice)] = [:]
     private var peripheral: CBPeripheral?
@@ -80,6 +80,17 @@ final class BluettiCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDele
             guard now < limit else { throw BluettiNativeFailure.failed(code: "timeout", message: message) }
             pump(until: min(deadline, limit))
         }
+    }
+
+    func waitForNextRead(at start: TimeInterval, timeout: TimeInterval) throws {
+        // Give each poll its own deadline; the handshake belongs to the first poll.
+        deadline = max(start, now) + timeout - 2
+        finalDeadline = deadline + 2
+        while now < start {
+            try check()
+            pump(until: start)
+        }
+        try check()
     }
 
     func scan(duration: TimeInterval) throws -> [BluettiNativeDevice] {

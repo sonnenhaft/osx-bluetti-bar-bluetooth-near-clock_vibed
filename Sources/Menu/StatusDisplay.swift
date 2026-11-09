@@ -134,7 +134,7 @@ extension BlueBarDelegate {
         let runtimeTip = (runtime.toolTip.map { $0 + "\n" } ?? "") + "Click to refresh."
         runtimeButton.toolTip = runtimeTip
         runtimeItem.toolTip = runtimeTip
-        let canRefresh = job == nil && !sleeping && !quitting
+        let canRefresh = (job == nil || (streaming && !isLoadingReading)) && !sleeping && !quitting
         runtimeButton.isEnabled = canRefresh
         runtimeRefreshButton.isEnabled = canRefresh
     }

@@ -38,7 +38,8 @@ final class BluettiBluetooth {
         return try driver.scan(duration: min(6, timeout))
     }
 
-    static func read(device: String?, timeout: TimeInterval) throws -> [String: Any] {
+    static func readSamples(device: String?, timeout: TimeInterval, interval: PollInterval?,
+                            receive: ([String: Any]) throws -> Void) throws {
         try validateInvocation(timeout)
         let driver = BluettiCentral(timeout: timeout, reserveCleanup: true)
         active = driver
@@ -47,8 +48,13 @@ final class BluettiBluetooth {
         let selected = try bluettiChooseDevice(found, selector: device)
         try driver.connect(selected)
         try driver.handshake()
-        let registers = try driver.readRegisters()
-        return try BluettiIoTProtocol.snapshot(registers: registers, device: selected)
+        while true {
+            let started = ProcessInfo.processInfo.systemUptime
+            let registers = try driver.readRegisters()
+            try receive(BluettiIoTProtocol.snapshot(registers: registers, device: selected))
+            guard let interval = interval else { return }
+            try driver.waitForNextRead(at: started + Double(interval.rawValue), timeout: timeout)
+        }
     }
 
     static func cancelCurrentOperation() {

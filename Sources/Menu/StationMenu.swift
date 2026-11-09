@@ -85,6 +85,7 @@ extension BlueBarDelegate {
     @objc func requestStationScan() {
         guard !demo, !sleeping, !quitting, !pendingScan, !isScanning else { return }
         pendingScan = true
+        stopPollingSession()
         scanError = nil
         rebuildStationMenu()
         runQueuedWork()

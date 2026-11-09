@@ -2,7 +2,7 @@ import AppKit
 
 final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let defaults = UserDefaults.standard
-    let refreshChoices = [(5, "5s"), (20, "20s"), (30, "30s"), (60, "1m"), (120, "2m")]
+    var streaming = false
     let demo = CommandLine.arguments.contains("--demo")
     private var showMenuAfterLaunch = CommandLine.arguments.contains("--show-menu")
     private var menuPopupScheduled = false
@@ -77,10 +77,12 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let refreshSlider = NSSlider(frame: .zero)
     let refreshValue = NSTextField(labelWithString: "Refresh: 30s")
 
-    var refreshInterval: TimeInterval {
+    var selectedInterval: PollInterval {
         let saved = defaults.integer(forKey: "refreshIntervalSeconds")
-        return TimeInterval(refreshChoices.contains { $0.0 == saved } ? saved : 30)
+        return PollInterval(rawValue: saved) ?? .thirtySeconds
     }
+
+    var refreshInterval: TimeInterval { TimeInterval(selectedInterval.rawValue) }
 
     var maximumAge: TimeInterval { return max(90, refreshInterval + 35) }
 
@@ -118,7 +120,7 @@ final class BlueBarDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     var isLoadingReading: Bool {
         return !sleeping && !quitting
-            && (awaitingFirstRead || pendingRefresh || (job != nil && !isScanning))
+            && (awaitingFirstRead || pendingRefresh || (job != nil && !isScanning && !streaming))
     }
 
     var identifier: String {

@@ -187,13 +187,13 @@ extension BlueBarDelegate {
         refreshSlider.autoresizingMask = [.width]
         refreshSlider.controlSize = .small
         refreshSlider.minValue = 0
-        refreshSlider.maxValue = Double(refreshChoices.count - 1)
-        refreshSlider.numberOfTickMarks = refreshChoices.count
+        refreshSlider.maxValue = Double(PollInterval.allCases.count - 1)
+        refreshSlider.numberOfTickMarks = PollInterval.allCases.count
         refreshSlider.allowsTickMarkValuesOnly = true
         refreshSlider.isContinuous = true
         refreshSlider.target = self
         refreshSlider.action = #selector(changeRefreshInterval(_:))
-        refreshSlider.toolTip = "5s / 20s / 30s / 1m / 2m"
+        refreshSlider.toolTip = PollInterval.allCases.map { $0.label }.joined(separator: " / ")
         refreshSlider.setAccessibilityLabel("Refresh interval")
         row.addSubview(refreshSlider)
         let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -204,22 +204,23 @@ extension BlueBarDelegate {
     }
 
     private func updateRefreshControl() {
-        let index = refreshChoices.firstIndex { $0.0 == Int(refreshInterval) } ?? 2
+        guard let index = PollInterval.allCases.firstIndex(of: selectedInterval) else { return }
         refreshSlider.doubleValue = Double(index)
-        refreshValue.stringValue = "Refresh: " + refreshChoices[index].1
-        refreshSlider.setAccessibilityValue(refreshChoices[index].1)
+        refreshValue.stringValue = "Refresh: " + selectedInterval.label
+        refreshSlider.setAccessibilityValue(selectedInterval.label)
     }
 
     @objc func changeRefreshInterval(_ sender: NSSlider) {
         guard sender.doubleValue.isFinite else { return }
-        let index = Int(min(Double(refreshChoices.count - 1), max(0, sender.doubleValue)).rounded())
-        let seconds = refreshChoices[index].0
+        let index = Int(min(Double(PollInterval.allCases.count - 1), max(0, sender.doubleValue)).rounded())
+        let seconds = PollInterval.allCases[index].rawValue
         guard seconds != Int(refreshInterval) else { updateRefreshControl(); return }
         defaults.set(seconds, forKey: "refreshIntervalSeconds")
         updateRefreshControl()
         if consecutiveReadFailures > 0 {
             nextReadRetryAt = Date().addingTimeInterval(pollDelay)
         }
+        if streaming { stopPollingSession() }
         restartAgeTimer()
         restartPollTimer()
         refresh()
