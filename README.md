@@ -1,4 +1,4 @@
-# BluettiBar 2.0.5
+# BluettiBar 2.0.6
 
 BluettiBar shows a BLUETTI AC50P’s battery level and output power next to the Mac clock. It uses Swift and the frameworks included with macOS.
 
@@ -18,10 +18,10 @@ Allow Bluetooth access when prompted. If the station is busy, disconnect the BLU
 
 ## Menu bar
 
-A reading such as **73% 135 W** shows the battery level followed by the combined AC and DC output. Use the menu to show or hide the icon, percentage, and output power. Hiding output power restores the percentage. The percentage also appears when a reading lacks a complete output measurement.
+A reading such as **73% 135 W** shows the battery level followed by the combined AC and DC output. Use the eye buttons to show or hide the icon, percentage, and output power. Hiding output power restores the percentage. The percentage also appears when a reading lacks a complete output measurement.
 
-Before the first reading, the BLUETTI icon opens the menu. If the station goes offline, the app keeps its last reading and shows when it was taken. Automatic polling pauses after a failed read and three retries. Click Refresh, select a station, or wake the Mac to resume polling.
+Before the first reading, the BLUETTI icon opens the menu. If the station goes offline, the app keeps its last reading and shows when it was taken. After three unsuccessful retries, the app checks every two minutes. Click the refresh arrow to try again immediately.
 
-Open the menu to see the runtime estimate, input and output power, and the past 30 minutes of load history. The station picker and pencil let you select and rename a station. You can also change the text color, size, and refresh interval.
+Open the menu to see the runtime estimate, input and output power, and the past 30 minutes of load history. The station submenu lets you select, scan for, and rename a station. You can also change the text color, size, and refresh interval.
 
 If macOS hides the status item, open BluettiBar again in Finder to show its menu. Choose **Quit BluettiBar** to exit. Run `./uninstall.command` to uninstall.

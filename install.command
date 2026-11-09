@@ -22,25 +22,28 @@ STAGED_APP="$BUILD_DIR/BluettiBar.app"
 CLI_PATH="$HOME/.local/bin/bluetti"
 AGENT_PATH="$HOME/Library/LaunchAgents/com.local.bluebar.plist"
 OWNERSHIP_FILE='Contents/Resources/bluebar-owned'
-if [[ -e "$APP_PATH" && ! -f "$APP_PATH/$OWNERSHIP_FILE" ]]; then
-  echo "An unrelated application already exists at $APP_PATH. Move it first." >&2
-  exit 1
+if [[ "${BLUETTI_CHECK_ONLY:-0}" != 1 ]]; then
+  if [[ -e "$APP_PATH" && ! -f "$APP_PATH/$OWNERSHIP_FILE" ]]; then
+    echo "An unrelated application already exists at $APP_PATH. Move it first." >&2
+    exit 1
+  fi
+  if [[ -e "$AGENT_PATH" ]] && ! /usr/bin/grep -q 'BlueBar-owned' "$AGENT_PATH"; then
+    echo "An unrelated launch agent already exists at $AGENT_PATH." >&2
+    exit 1
+  fi
+  mkdir -p "$APP_PARENT" "$HOME/.local/bin" "$HOME/Library/LaunchAgents"
 fi
-if [[ -e "$AGENT_PATH" ]] && ! /usr/bin/grep -q 'BlueBar-owned' "$AGENT_PATH"; then
-  echo "An unrelated launch agent already exists at $AGENT_PATH." >&2
-  exit 1
-fi
-mkdir -p "$BUILD_DIR" "$APP_PARENT" "$HOME/.local/bin" "$HOME/Library/LaunchAgents"
+mkdir -p "$BUILD_DIR"
 if [[ -e "$STAGED_APP" ]]; then /bin/rm -rf "$STAGED_APP"; fi
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
 
 echo 'Building BluettiBar with the macOS SDK…'
 /usr/bin/xcrun swiftc -O -swift-version 5 -parse-as-library \
-  -import-objc-header "$PROJECT_DIR/native/BluettiPOSIX.h" \
+  -import-objc-header "$PROJECT_DIR/Sources/Bluetooth/BluettiPOSIX.h" \
   -target "$(uname -m)-apple-macosx12.0" \
   -framework AppKit -framework Foundation -framework CoreBluetooth \
   -framework CryptoKit -framework Security \
-  "$PROJECT_DIR/mac/BlueBar.swift" "$PROJECT_DIR/mac/Installation.swift" "$PROJECT_DIR"/native/*.swift \
+  "$PROJECT_DIR"/Sources/*/*.swift "$PROJECT_DIR"/Tests/*.swift \
   -o "$STAGED_APP/Contents/MacOS/BluettiBar"
 /bin/cp "$PROJECT_DIR/resources/Info.plist" "$STAGED_APP/Contents/Info.plist"
 /bin/cp "$PROJECT_DIR/resources/bluetti-icon.jpg" "$STAGED_APP/Contents/Resources/bluetti-icon.jpg"
@@ -54,6 +57,7 @@ printf '%s\n' 'BlueBar-owned: BluettiBar AC50P monitor' > "$STAGED_APP/$OWNERSHI
 echo 'Checking protocol, cache and runtime logic…'
 "$STAGED_APP/Contents/MacOS/BluettiBar" --bluetti-helper --self-test
 "$STAGED_APP/Contents/MacOS/BluettiBar" --ui-self-test
+if [[ "${BLUETTI_CHECK_ONLY:-0}" == 1 ]]; then exit 0; fi
 
 # Complete all build checks before touching the previous working installation.
 STAGED_EXE="$STAGED_APP/Contents/MacOS/BluettiBar"

@@ -133,6 +133,9 @@ enum BluettiNativeSelfTests {
             }
         }
 
+        try test("last_read_age", MenuPresentationTests.lastReadAge)
+        try test("reading_to_menu", MenuPresentationTests.readingToMenu)
+
         // The original seven command/cache/selection test groups.
         try test("selection_never_chooses_arbitrarily") {
             let choices = [device("AC50P123", "a"), device("AC50P456", "b")]
